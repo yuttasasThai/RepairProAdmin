@@ -21,6 +21,7 @@ import { SourceCodeModal } from './components/SourceCodeModal';
 import { MobileGuideModal } from './components/MobileGuideModal';
 import { LicenseManagerModal } from './components/LicenseManagerModal';
 import { SubscriptionExpiredModal } from './components/SubscriptionExpiredModal';
+import { LoginModal } from './components/LoginModal';
 import { RepairJob, RepairStatus, ShopSettings } from './types/repair';
 import { LicenseConfig } from './types/license';
 import { getStoredLicense, calculateLicenseStatus } from './utils/license';
@@ -56,6 +57,7 @@ export default function App() {
   const [printJob, setPrintJob] = useState<RepairJob | null>(null);
   const [isSourceCodeOpen, setIsSourceCodeOpen] = useState(false);
   const [isMobileGuideOpen, setIsMobileGuideOpen] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
 
   // Intercept job creation if license is expired
   const handleOpenNewJob = () => {
@@ -196,6 +198,7 @@ export default function App() {
         onOpenSourceCode={() => setIsSourceCodeOpen(true)}
         onOpenMobileGuide={() => setIsMobileGuideOpen(true)}
         onOpenLicenseManager={() => setIsLicenseManagerOpen(true)}
+        onOpenLogin={() => setIsLoginOpen(true)}
         licenseConfig={licenseConfig}
         licenseStatus={licenseStatus}
         jobs={jobs}
@@ -353,6 +356,16 @@ export default function App() {
         licenseStatus={licenseStatus}
         onLicenseUpdated={(newConfig) => setLicenseConfig(newConfig)}
         onOpenAdminManager={() => setIsLicenseManagerOpen(true)}
+      />
+
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        onDataImported={() => {
+          setJobs(getStoredJobs());
+          setShopSettings(getStoredSettings());
+          setLicenseConfig(getStoredLicense());
+        }}
       />
     </div>
   );
