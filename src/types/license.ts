@@ -1,4 +1,4 @@
-export type SubscriptionPlanType = 'trial' | 'monthly' | 'quarterly' | 'half_year' | 'annual' | 'lifetime';
+export type SubscriptionPlanType = 'trial' | 'subscription' | 'monthly' | 'quarterly' | 'half_year' | 'annual' | 'lifetime';
 
 export interface LicenseConfig {
   tenantId: string;           // รหัสสาขา/รหัสแยก เช่น 'default', 'branch-1'
@@ -17,6 +17,8 @@ export interface LicenseStatus {
   isExpired: boolean;
   isExpiringSoon: boolean;    // เหลือน้อยกว่าหรือเท่ากับ 7 วัน
   daysRemaining: number;
+  hoursRemaining?: number;
+  countdownText?: string;     // ข้อความนับถอยหลัง เช่น "เหลืออีก 6 วัน 14 ชม."
   expiresAtFormatted: string;
   isLifetime: boolean;
   planName: string;

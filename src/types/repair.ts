@@ -17,6 +17,9 @@ export type CancellationReason =
 
 export type JobType = 'งานใหม่' | 'งานในประกัน';
 
+// 1) ประเภทการรับงานตอนเปิดงาน: 1.ส่งมา 2.มาเอง 3.ซ่อมนอกสถานที่
+export type ServiceChannel = 'ส่งมา' | 'มาเอง' | 'ซ่อมนอกสถานที่';
+
 export type CustomerDecision = 'accepted' | 'cancelled' | 'pending';
 
 export type DeviceCategory = string;
@@ -54,6 +57,7 @@ export interface FinancialInfo {
   paidAmount: number;   // ยอดชำระแล้ว
   paymentStatus: 'unpaid' | 'deposit_paid' | 'paid';
   paymentMethod?: 'cash' | 'transfer' | 'credit_card' | 'qr';
+  paymentSlipUrl?: string; // สลิปหลักฐานการโอนเงิน (Data URL หรือ image URL)
 }
 
 export interface WarrantyInfo {
@@ -68,6 +72,10 @@ export interface StatusHistoryEntry {
   timestamp: string;
   note?: string;
   updatedBy?: string;
+  photos?: string[]; // รูปถ่ายที่แนบในแต่ละขั้นตอนสถานะ
+  paymentStatus?: 'paid' | 'pending'; // สถานะชำระเงิน
+  paymentMethod?: 'cash' | 'transfer'; // วิธีชำระ: เงินสด หรือ โอน
+  paymentSlipUrl?: string; // รูปถ่ายสลิปหลักฐานการโอน
 }
 
 export interface WaitingPartItem {
@@ -84,6 +92,7 @@ export interface RepairJob {
   deliveredAt?: string; // วันที่ส่งมอบเครื่องให้ลูกค้า
   
   jobType?: JobType; // 'งานใหม่' | 'งานในประกัน'
+  serviceChannel?: ServiceChannel; // 1.ส่งมา 2.มาเอง 3.ซ่อมนอกสถานที่
   customer: CustomerInfo;
   device: DeviceInfo;
   
@@ -103,6 +112,8 @@ export interface RepairJob {
   warranty: WarrantyInfo;
   
   history?: StatusHistoryEntry[];
+  stepPhotos?: Record<number, string[]>; // รูปถ่ายแนบแยกตามขั้นตอน 1-5
+  stepNotes?: Record<number, string>;    // บันทึกแยกตามขั้นตอน 1-5
 }
 
 export interface ShopSettings {
