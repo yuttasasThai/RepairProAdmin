@@ -67,13 +67,16 @@ export const SourceCodeModal: React.FC<SourceCodeModalProps> = ({ isOpen, onClos
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg sm:text-xl font-bold">Source Code โค้ดทั้งหมดของระบบ</h2>
-                <span className="px-2 py-0.5 text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-full font-mono">
+                <h2 className="text-lg sm:text-xl font-bold">RepairPro Source Code Rev.04</h2>
+                <span className="px-2 py-0.5 text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 rounded-full font-mono font-bold">
+                  Rev.04 (Multi-Device Sync & Financial Flow)
+                </span>
+                <span className="px-2 py-0.5 text-xs bg-blue-500/20 text-blue-300 border border-blue-400/30 rounded-full font-mono">
                   {fileKeys.length} ไฟล์
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5">
-                ดาวน์โหลดเป็นไฟล์ .ZIP หรือคัดลอกโค้ดไปรันบนคอมพิวเตอร์ของคุณได้ทันที
+                ซอร์สโค้ดฉบับสมบูรณ์ ปรับแก้เชื่อมโยงต้นทุนอะไหล่ กราฟทุกหน้าตรงกัน และเพิ่มระบบ Login พร้อมย้ายเครื่องข้ามโทรศัพท์ (Rev.04)
               </p>
             </div>
           </div>
@@ -81,25 +84,25 @@ export const SourceCodeModal: React.FC<SourceCodeModalProps> = ({ isOpen, onClos
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition"
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Notice Banner: 403 fix explanation */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200 px-4 py-2.5 text-xs text-blue-900 flex flex-wrap items-center justify-between gap-2">
+        {/* Notice Banner: Verification changelog & Vercel deployment guarantee */}
+        <div className="bg-gradient-to-r from-emerald-50 via-blue-50 to-indigo-50 border-b border-blue-200 px-4 py-2.5 text-xs text-slate-800 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-blue-600 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>
-              <strong>แก้ปัญหา Error 403:</strong> ระบบทำการบีบอัดไฟล์ ZIP ในเครื่องคุณโดยตรง (In-Memory Blob) ไม่ผ่าน Cloud Server ดาวน์โหลดได้ 100%
+              <strong>สรุปการแก้ไข Rev.04:</strong> 1) แก้ไขอะไหล่ขั้นตอน 2 ปรับซิงค์ต้นทุนในขั้นตอน 3 และหน้ารายได้อัตโนมัติ 2) ปรับกราฟหน้ารายได้, งานซ่อมเสร็จ, และประกันให้ตรงกับหน้าแดชบอร์ด 3) เพิ่มระบบ Login แอดมิน/สาขา + รหัสย้ายข้อมูลข้ามโทรศัพท์เครื่องใหม่ 4) ไฟล์พร้อม Deploy บน Vercel 100%
             </span>
           </div>
           <button
             onClick={handleDownload}
             disabled={isDownloading}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer active:scale-95 ${
               downloadSuccess
                 ? 'bg-emerald-600 text-white'
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -108,17 +111,17 @@ export const SourceCodeModal: React.FC<SourceCodeModalProps> = ({ isOpen, onClos
             {isDownloading ? (
               <>
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>กำลังสร้างไฟล์ ZIP...</span>
+                <span>กำลังสร้าง repair-pro-source-code-rev.04.zip...</span>
               </>
             ) : downloadSuccess ? (
               <>
                 <Check className="w-3.5 h-3.5" />
-                <span>ดาวน์โหลดสำเร็จแล้ว!</span>
+                <span>ดาวน์โหลด Rev.04 สำเร็จแล้ว!</span>
               </>
             ) : (
               <>
                 <Download className="w-3.5 h-3.5" />
-                <span>ดาวน์โหลด Source Code (.ZIP) ทันที</span>
+                <span>ดาวน์โหลด Source Code Rev.04 (.ZIP)</span>
               </>
             )}
           </button>

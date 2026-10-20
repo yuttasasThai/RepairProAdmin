@@ -10,7 +10,6 @@ import {
   formatDateThai 
 } from '../utils/formatters';
 import { exportJobsToExcel } from '../utils/excelExport';
-import { DonutPieChart, PieChartData } from './PieChart';
 
 interface JobsTableViewProps {
   jobs: RepairJob[];
@@ -43,31 +42,30 @@ export const JobsTableView: React.FC<JobsTableViewProps> = ({
     });
   }, [jobs, sortField, sortOrder]);
 
-  // ส่วนบนเเสดงกราฟวงกลมตารางงาน (Pie chart of repair table jobs by status)
-  const tablePieData: PieChartData[] = useMemo(() => {
-    const total = jobs.length;
-    if (total === 0) return [];
-
-    const countStatus = (s: RepairStatus) => jobs.filter(j => j.status === s).length;
-
-    const raw = [
-      { label: 'รอซ่อม', count: countStatus('pending'), color: '#f59e0b' },
-      { label: 'กำลังซ่อม', count: countStatus('in_progress'), color: '#3b82f6' },
-      { label: 'รออะไหล่', count: countStatus('waiting_parts'), color: '#a855f7' },
-      { label: 'ซ่อมแล้ว', count: countStatus('completed'), color: '#10b981' },
-      { label: 'รอส่ง', count: countStatus('ready_to_ship'), color: '#06b6d4' },
-      { label: 'ส่งแล้ว', count: countStatus('delivered'), color: '#0f766e' },
-      { label: 'มารับเอง', count: countStatus('picked_up'), color: '#10b981' },
-      { label: 'ยกเลิก', count: countStatus('cancelled'), color: '#ef4444' },
+  // Status breakdown array for horizontal progress bars matching DashboardView
+  const statusPerformanceList = useMemo(() => {
+    const list: {
+      status: RepairStatus;
+      label: string;
+      color: string;
+      barClass: string;
+      count: number;
+      percentage: number;
+    }[] = [
+      { status: 'pending', label: 'รอซ่อม', color: '#f59e0b', barClass: 'bg-amber-500', count: jobs.filter(j => j.status === 'pending').length, percentage: 0 },
+      { status: 'in_progress', label: 'กำลังซ่อม', color: '#3b82f6', barClass: 'bg-blue-500', count: jobs.filter(j => j.status === 'in_progress').length, percentage: 0 },
+      { status: 'waiting_parts', label: 'รออะไหล่', color: '#a855f7', barClass: 'bg-purple-500', count: jobs.filter(j => j.status === 'waiting_parts').length, percentage: 0 },
+      { status: 'completed', label: 'ซ่อมแล้ว', color: '#10b981', barClass: 'bg-emerald-500', count: jobs.filter(j => j.status === 'completed').length, percentage: 0 },
+      { status: 'ready_to_ship', label: 'รอส่ง', color: '#06b6d4', barClass: 'bg-cyan-500', count: jobs.filter(j => j.status === 'ready_to_ship').length, percentage: 0 },
+      { status: 'delivered', label: 'ส่งแล้ว', color: '#0f766e', barClass: 'bg-teal-600', count: jobs.filter(j => j.status === 'delivered').length, percentage: 0 },
+      { status: 'picked_up', label: 'มารับเอง', color: '#059669', barClass: 'bg-emerald-600', count: jobs.filter(j => j.status === 'picked_up').length, percentage: 0 },
+      { status: 'cancelled', label: 'ยกเลิก', color: '#ef4444', barClass: 'bg-rose-500', count: jobs.filter(j => j.status === 'cancelled').length, percentage: 0 },
     ];
 
-    return raw
-      .filter(item => item.count > 0)
-      .map(item => ({
-        ...item,
-        percentage: Math.round((item.count / total) * 100),
-        formattedValue: `${item.count} งาน`,
-      }));
+    return list.map(item => ({
+      ...item,
+      percentage: jobs.length > 0 ? Math.round((item.count / jobs.length) * 100) : 0,
+    }));
   }, [jobs]);
 
   const inWarrantyCount = useMemo(() => {
@@ -96,46 +94,43 @@ export const JobsTableView: React.FC<JobsTableViewProps> = ({
 
   return (
     <div className="space-y-4 pb-12 w-full">
-      {/* 2) ส่วนบนเเสดงกราฟวงกลมตารางงาน */}
+      {/* ส่วนบนเเสดงการกระจายสถานะงานและ KPI สอดคล้องกับหน้าแดชบอร์ด */}
       <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs">
-        <div className="flex flex-col sm:flex-row items-center gap-6">
-          <DonutPieChart 
-            data={tablePieData} 
-            total={jobs.length} 
-            size={150} 
-            centerTitle="งานทั้งหมด"
-            centerValue={`${jobs.length}`}
-            unitLabel="งาน"
-          />
+        <div className="flex flex-col lg:flex-row items-stretch justify-between gap-6">
+          <div className="flex-1 space-y-3">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  สัดส่วนสถานะงานซ่อมในระบบ
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  รวมทั้งหมด {jobs.length} งาน • งานในประกัน {inWarrantyCount} งาน • งานเปิดใหม่ {newJobTypeCount} งาน
+                </p>
+              </div>
+              <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200 font-mono">
+                {jobs.length} งานทั้งหมด
+              </span>
+            </div>
 
-          <div className="flex-1 w-full">
-            <h2 className="text-sm font-bold text-slate-900">
-              สัดส่วนสถานะงานซ่อมในระบบ
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              รวมทั้งหมด {jobs.length} งาน • ในประกัน {inWarrantyCount} งาน • งานใหม่ {newJobTypeCount} งาน
-            </p>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
-              {[
-                { label: 'รอซ่อม', color: '#f59e0b', status: 'pending' },
-                { label: 'กำลังซ่อม', color: '#3b82f6', status: 'in_progress' },
-                { label: 'รออะไหล่', color: '#a855f7', status: 'waiting_parts' },
-                { label: 'ซ่อมแล้ว', color: '#10b981', status: 'completed' },
-                { label: 'รอส่ง', color: '#06b6d4', status: 'ready_to_ship' },
-                { label: 'ส่งแล้ว', color: '#0f766e', status: 'delivered' },
-                { label: 'มารับเอง', color: '#10b981', status: 'picked_up' },
-                { label: 'ยกเลิก', color: '#ef4444', status: 'cancelled' },
-              ].map(st => {
-                const count = jobs.filter(j => j.status === st.status).length;
-                return (
-                  <div key={st.label} className="flex items-center gap-1.5 text-xs bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: st.color }}></span>
-                    <span className="text-slate-600">{st.label}:</span>
-                    <strong className="text-slate-900 font-mono">{count}</strong>
+            {/* Horizontal Status Progress Bars */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+              {statusPerformanceList.map((item) => (
+                <div key={item.status} className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <span className="font-semibold text-slate-700 truncate">{item.label}</span>
+                    </div>
+                    <span className="font-bold text-slate-900 font-mono ml-1">{item.count}</span>
                   </div>
-                );
-              })}
+                  <div className="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
+                    <div 
+                      className={`${item.barClass} h-1.5 rounded-full transition-all duration-500`}
+                      style={{ width: `${item.percentage}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -230,19 +225,32 @@ export const JobsTableView: React.FC<JobsTableViewProps> = ({
                         </button>
                       </td>
 
-                      {/* 2. ประเภทงาน: ใช้ป้ายเหมือนกับตารางใน หน้ารายได้ */}
-                      <td className="py-3.5 px-3 whitespace-nowrap align-top text-center">
-                        {job.jobType === 'งานในประกัน' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                            <span>ในประกัน</span>
+                      {/* 2. ประเภทงาน: แสดงทั้ง งานใหม่/ในประกัน และ 1.ส่งมา 2.มาเอง 3.ซ่อมนอกสถานที่ */}
+                      <td className="py-3.5 px-3 whitespace-nowrap align-top text-center space-y-1">
+                        <div>
+                          {job.jobType === 'งานในประกัน' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                              <span>ในประกัน</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200 shadow-2xs">
+                              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                              <span>งานใหม่</span>
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.2 rounded text-[10px] font-bold ${
+                            job.serviceChannel === 'ส่งมา' 
+                              ? 'bg-sky-50 text-sky-800 border border-sky-200' 
+                              : job.serviceChannel === 'ซ่อมนอกสถานที่' 
+                              ? 'bg-amber-50 text-amber-800 border border-amber-200' 
+                              : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          }`}>
+                            <span>{job.serviceChannel === 'ส่งมา' ? '📦 1. ส่งมา' : job.serviceChannel === 'ซ่อมนอกสถานที่' ? '🚗 3. นอกสถานที่' : '🚶‍♂️ 2. มาเอง'}</span>
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200 shadow-2xs">
-                            <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                            <span>งานใหม่</span>
-                          </span>
-                        )}
+                        </div>
                       </td>
 
                       {/* 3. รายการ: แสดงอุปกรณ์ รุ่น อาการ ลูกค้า และสถานะงานชัดเจน ไม่ตัดข้อความ */}
