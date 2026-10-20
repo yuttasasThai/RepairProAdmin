@@ -9,7 +9,6 @@ import {
 import { RepairJob } from '../types/repair';
 import { formatCurrency } from '../utils/formatters';
 import { exportJobsToExcel } from '../utils/excelExport';
-import { DonutPieChart, PieChartData } from './PieChart';
 
 interface MonthlyReportViewProps {
   jobs: RepairJob[];
@@ -83,36 +82,6 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
 
   const profitMargin = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0;
 
-  // 4) ส่วนบนเเสดงกราฟวงกลม รายได้, ต้นทุน, กำไร
-  const financialPieData: PieChartData[] = useMemo(() => {
-    if (totalRevenue <= 0 && totalCost <= 0) return [];
-
-    const basis = totalRevenue > 0 ? totalRevenue : totalCost;
-    const costPercent = basis > 0 ? Math.round((totalCost / basis) * 100) : 0;
-    const profitPercent = basis > 0 && totalProfit > 0 ? Math.round((totalProfit / basis) * 100) : 0;
-
-    const list: PieChartData[] = [];
-    if (totalCost > 0) {
-      list.push({
-        label: 'ต้นทุนรวม',
-        count: totalCost,
-        color: '#f43f5e',
-        percentage: costPercent,
-        formattedValue: formatCurrency(totalCost),
-      });
-    }
-    if (totalProfit > 0) {
-      list.push({
-        label: 'กำไรสุทธิ',
-        count: totalProfit,
-        color: '#10b981',
-        percentage: profitPercent,
-        formattedValue: formatCurrency(totalProfit),
-      });
-    }
-
-    return list;
-  }, [totalRevenue, totalCost, totalProfit]);
 
   const handleToggleSort = (field: 'id' | 'price' | 'profit' | 'shippingCost') => {
     if (sortField === field) {
@@ -132,23 +101,77 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
 
   return (
     <div className="space-y-4 pb-12 w-full">
-      {/* 4) ส่วนบนเเสดงกราฟวงกลม รายได้, ต้นทุน, กำไร */}
+      {/* กราฟแท่งเปรียบเทียบรายได้ ต้นทุน กำไรสุทธิ สอดคล้องกับหน้าแดชบอร์ด */}
       <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex flex-col sm:flex-row items-center gap-6">
-            <DonutPieChart 
-              data={financialPieData} 
-              total={totalRevenue > 0 ? totalRevenue : totalCost} 
-              size={150} 
-              centerTitle="รายได้รวม"
-              centerValue={formatCurrency(totalRevenue)}
-              unitLabel="บาท"
-            />
+        <div className="flex flex-col lg:flex-row items-stretch justify-between gap-6">
+          {/* Vertical 3-Column Bar Chart */}
+          <div className="w-full lg:w-80 shrink-0 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-1">
+              <span className="text-xs font-bold text-slate-800">กราฟเปรียบเทียบทางการเงิน</span>
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                อัตรากำไร {profitMargin}%
+              </span>
+            </div>
 
+            {(() => {
+              const maxVal = Math.max(totalRevenue, totalCost, totalProfit, 1);
+              const revHeight = Math.max(14, Math.round((totalRevenue / maxVal) * 100));
+              const costHeight = Math.max(14, Math.round((totalCost / maxVal) * 100));
+              const profitHeight = Math.max(14, Math.round((Math.max(0, totalProfit) / maxVal) * 100));
+
+              return (
+                <div className="h-32 flex items-end justify-around gap-2 px-2 pt-3 pb-1 border-b border-slate-200">
+                  {/* Bar 1: รายได้ */}
+                  <div className="flex-1 flex flex-col items-center h-full justify-end group">
+                    <span className="text-[10px] font-bold text-blue-700 font-mono mb-1 truncate max-w-full">
+                      {formatCurrency(totalRevenue)}
+                    </span>
+                    <div 
+                      className="w-full max-w-[46px] bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-lg transition-all duration-500 shadow-2xs group-hover:opacity-90"
+                      style={{ height: `${totalRevenue > 0 ? revHeight : 8}%` }}
+                    />
+                    <span className="text-[11px] font-semibold text-slate-700 mt-1">รายได้</span>
+                  </div>
+
+                  {/* Bar 2: ต้นทุน */}
+                  <div className="flex-1 flex flex-col items-center h-full justify-end group">
+                    <span className="text-[10px] font-bold text-rose-600 font-mono mb-1 truncate max-w-full">
+                      {formatCurrency(totalCost)}
+                    </span>
+                    <div 
+                      className="w-full max-w-[46px] bg-gradient-to-t from-rose-600 to-rose-400 rounded-t-lg transition-all duration-500 shadow-2xs group-hover:opacity-90"
+                      style={{ height: `${totalCost > 0 ? costHeight : 8}%` }}
+                    />
+                    <span className="text-[11px] font-semibold text-slate-700 mt-1">ต้นทุน</span>
+                  </div>
+
+                  {/* Bar 3: กำไรสุทธิ */}
+                  <div className="flex-1 flex flex-col items-center h-full justify-end group">
+                    <span className="text-[10px] font-bold text-emerald-600 font-mono mb-1 truncate max-w-full">
+                      {formatCurrency(totalProfit)}
+                    </span>
+                    <div 
+                      className="w-full max-w-[46px] bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-lg transition-all duration-500 shadow-2xs group-hover:opacity-90"
+                      style={{ height: `${totalProfit > 0 ? profitHeight : 8}%` }}
+                    />
+                    <span className="text-[11px] font-bold text-emerald-700 mt-1">กำไรสุทธิ</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="grid grid-cols-3 gap-1 pt-1.5 text-center text-[10px] text-slate-500 font-mono">
+              <div>รับ: {formatCurrency(totalRevenue)}</div>
+              <div>ทุน: {formatCurrency(totalCost)}</div>
+              <div>กำไร: {formatCurrency(totalProfit)}</div>
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold text-slate-900">
-                  สัดส่วนทางการเงิน
+                  สัดส่วนทางการเงินและรายจ่าย
                 </h2>
                 <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
                   กำไร {profitMargin}%

@@ -46,17 +46,19 @@ export const LicenseStatusBadge: React.FC<LicenseStatusBadgeProps> = ({
       )}
 
       {/* Label */}
-      <span className="whitespace-nowrap">
+      <span className="whitespace-nowrap font-semibold">
         {licenseStatus.isExpired
           ? 'หมดอายุ'
           : licenseStatus.isLifetime
           ? 'ตลอดชีพ'
+          : isCustomTenant
+          ? `นับถอยหลัง: เหลือ ${licenseStatus.daysRemaining} วัน`
           : `เหลือ ${licenseStatus.daysRemaining} วัน`}
       </span>
 
       {/* Tenant Indicator if non-default */}
       {isCustomTenant && (
-        <span className="ml-1 px-1.5 py-0.2 bg-slate-800 text-slate-300 rounded text-[10px] font-mono border border-slate-700">
+        <span className="ml-1 px-1.5 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[10px] font-mono border border-amber-500/40 font-bold">
           สาขา: {tenantId}
         </span>
       )}

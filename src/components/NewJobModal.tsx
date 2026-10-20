@@ -8,9 +8,13 @@ import {
   UserCheck, 
   UserPlus,
   Layers,
-  Sparkles
+  Sparkles,
+  Package,
+  User,
+  Truck,
+  MapPin
 } from 'lucide-react';
-import { RepairJob, JobType, RepairStatus } from '../types/repair';
+import { RepairJob, JobType, RepairStatus, ServiceChannel } from '../types/repair';
 
 interface NewJobModalProps {
   isOpen: boolean;
@@ -50,6 +54,10 @@ export const NewJobModal: React.FC<NewJobModalProps> = ({
 
   // ประเภทงาน: งานใหม่ หรือ งานในประกัน (ตามสั่ง)
   const [jobType, setJobType] = useState<JobType>('งานใหม่');
+
+  // 1) ประเภทการรับงานตอนเปิดงาน: 1.ส่งมา 2.มาเอง 3.ซ่อมนอกสถานที่
+  const [serviceChannel, setServiceChannel] = useState<ServiceChannel>('มาเอง');
+  const [onsiteServiceFee, setOnsiteServiceFee] = useState<number>(0);
 
   // Customer Info
   const [customerName, setCustomerName] = useState('');
@@ -121,9 +129,13 @@ export const NewJobModal: React.FC<NewJobModalProps> = ({
     const initialStatus: RepairStatus = 'pending'; // รอซ่อมเสมอ (สถานะตกลงซ่อม/ยกเลิก มาแก้ไขในตารางแทน)
 
     // ค่าอะไหล่, ค่าส่ง, ค่าใช้จ่ายอื่นๆ เริ่มต้น 0 เพื่อนำไปปรับแก้ในตารางหลังบันทึกเปิด Job
+    const actualOnsiteFee = serviceChannel === 'ซ่อมนอกสถานที่' ? onsiteServiceFee : 0;
+    const initialProfit = (numericPrice + actualOnsiteFee);
+
     const jobPayload: Omit<RepairJob, 'id' | 'createdAt'> & { customCreatedAt?: string } = {
       customCreatedAt: new Date(jobDateTime).toISOString(),
       jobType,
+      serviceChannel,
       customer: {
         name: customerName.trim(),
         phone: customerPhone.trim(),
@@ -140,12 +152,13 @@ export const NewJobModal: React.FC<NewJobModalProps> = ({
       status: initialStatus,
       financials: {
         price: numericPrice,
+        onsiteServiceFee: actualOnsiteFee,
         partsCost: 0,
         shippingCost: 0,
         otherCost: 0,
         laborCost: 0,
         totalCost: 0,
-        profit: numericPrice,
+        profit: initialProfit,
         customerDecision: 'accepted',
         deposit: 0,
         paidAmount: 0,
@@ -222,6 +235,80 @@ export const NewJobModal: React.FC<NewJobModalProps> = ({
                 <span>🛡️ งานในประกัน (เคลมฟรี/ในระยะ)</span>
               </button>
             </div>
+          </div>
+
+          {/* Section 0.5: ประเภทการรับงาน (1.ส่งมา 2.มาเอง 3.ซ่อมนอกสถานที่) */}
+          <div className="p-3 bg-gradient-to-r from-slate-50 to-amber-50/60 border border-amber-200/80 rounded-xl space-y-2">
+            <label className="block text-xs font-bold text-slate-800 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Truck className="w-4 h-4 text-amber-600" />
+                <span>ช่องทางการรับบริการ (ประเภทงาน):</span>
+              </span>
+              <span className="text-[11px] text-amber-800 font-semibold bg-amber-100 px-2 py-0.5 rounded border border-amber-200">
+                {serviceChannel === 'ส่งมา' ? '1. ส่งพัสดุมาที่ร้าน' : serviceChannel === 'มาเอง' ? '2. ลูกค้านำเครื่องมาเอง' : '3. ช่างไปซ่อมนอกสถานที่'}
+              </span>
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setServiceChannel('ส่งมา')}
+                className={`py-2 px-2 rounded-lg border font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  serviceChannel === 'ส่งมา'
+                    ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                }`}
+              >
+                <Package className="w-4 h-4" />
+                <span>1. ส่งมา</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setServiceChannel('มาเอง')}
+                className={`py-2 px-2 rounded-lg border font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  serviceChannel === 'มาเอง'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                }`}
+              >
+                <User className="w-4 h-4" />
+                <span>2. มาเอง</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setServiceChannel('ซ่อมนอกสถานที่')}
+                className={`py-2 px-2 rounded-lg border font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  serviceChannel === 'ซ่อมนอกสถานที่'
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                }`}
+              >
+                <Truck className="w-4 h-4" />
+                <span>3. นอกสถานที่</span>
+              </button>
+            </div>
+
+            {serviceChannel === 'ซ่อมนอกสถานที่' && (
+              <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between gap-3">
+                <span className="text-xs text-amber-900 font-medium flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                  <span>ค่าบริการนอกสถานที่ (บาท):</span>
+                </span>
+                <div className="relative w-36">
+                  <input
+                    type="number"
+                    min="0"
+                    step="50"
+                    value={onsiteServiceFee || ''}
+                    onChange={(e) => setOnsiteServiceFee(Math.max(0, Number(e.target.value) || 0))}
+                    placeholder="0"
+                    className="w-full pl-3 pr-8 py-1.5 text-xs bg-white border border-amber-300 rounded-lg text-right font-mono font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                  <span className="absolute right-2.5 top-1.5 text-xs text-slate-400">฿</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 1: วดป & ลูกค้า */}

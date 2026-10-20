@@ -10,7 +10,6 @@ import {
 import { RepairJob } from '../types/repair';
 import { formatDateThai } from '../utils/formatters';
 import { exportJobsToExcel } from '../utils/excelExport';
-import { DonutPieChart, PieChartData } from './PieChart';
 
 interface WarrantyAlertsViewProps {
   jobs: RepairJob[];
@@ -121,32 +120,6 @@ export const WarrantyAlertsView: React.FC<WarrantyAlertsViewProps> = ({
   const inWarrantyCount = inWarrantyJobs.length;
   const expiredCount = expiredJobs.length;
 
-  const warrantyPieData: PieChartData[] = useMemo(() => {
-    const total = processedJobs.length;
-    if (total === 0) return [];
-
-    const list: PieChartData[] = [];
-    if (inWarrantyCount > 0) {
-      list.push({
-        label: 'ในประกัน',
-        count: inWarrantyCount,
-        color: '#059669',
-        percentage: Math.round((inWarrantyCount / total) * 100),
-        formattedValue: `${inWarrantyCount} งาน`,
-      });
-    }
-    if (expiredCount > 0) {
-      list.push({
-        label: 'หมดประกัน',
-        count: expiredCount,
-        color: '#ef4444',
-        percentage: Math.round((expiredCount / total) * 100),
-        formattedValue: `${expiredCount} งาน`,
-      });
-    }
-
-    return list;
-  }, [processedJobs.length, inWarrantyCount, expiredCount]);
 
   const handleToggleInWarrantySort = (field: 'id' | 'remainingDays') => {
     if (inWarrantySortField === field) {
@@ -173,26 +146,17 @@ export const WarrantyAlertsView: React.FC<WarrantyAlertsViewProps> = ({
 
   return (
     <div className="space-y-6 pb-12 w-full">
-      {/* ส่วนบนเเสดงกราฟวงกลมงานทั้งหมด จำนวนงานที่อยู่ในประกัน จำนวนงานที่หมดประกัน */}
+      {/* สรุปสถานะการรับประกัน (Segmented Gauge & Protection Metric Cards สอดคล้องกับหน้าแดชบอร์ด) */}
       <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs">
-        <div className="flex flex-col sm:flex-row items-center gap-6">
-          <DonutPieChart 
-            data={warrantyPieData} 
-            total={processedJobs.length} 
-            size={150} 
-            centerTitle="งานซ่อมเสร็จ"
-            centerValue={`${processedJobs.length}`}
-            unitLabel="งาน"
-          />
-
-          <div className="flex-1 w-full">
-            <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex flex-col lg:flex-row items-stretch justify-between gap-6">
+          <div className="flex-1 space-y-3.5">
+            <div className="flex items-center justify-between flex-wrap gap-2 pb-1 border-b border-slate-100">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">
-                  สัดส่วนงานตามการรับประกัน (เฉพาะงานซ่อมเสร็จแล้ว)
+                  สถานะความคุ้มครองการรับประกัน (เฉพาะงานซ่อมเสร็จ)
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  รวมงานซ่อมเสร็จทั้งหมด {processedJobs.length} งาน • เริ่มนับประกันหลังจากส่งพัสดุ หรือ ลูกค้ามารับเครื่อง
+                  รวมงานซ่อมเสร็จ {processedJobs.length} งาน • เริ่มนับประกันหลังจากส่งพัสดุ หรือ ลูกค้ามารับเครื่อง
                 </p>
               </div>
 
@@ -202,7 +166,7 @@ export const WarrantyAlertsView: React.FC<WarrantyAlertsViewProps> = ({
                 className={`text-xs font-semibold px-3 py-1.5 rounded-xl shadow-xs transition-all flex items-center gap-1.5 ${
                   processedJobs.length === 0
                     ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                    : 'bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer'
+                    : 'bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer active:scale-95'
                 }`}
                 title="ส่งออกไฟล์ Excel ทั้งหมด"
               >
@@ -211,33 +175,81 @@ export const WarrantyAlertsView: React.FC<WarrantyAlertsViewProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-3">
-              <div className="bg-emerald-50/80 border border-emerald-200/80 px-3.5 py-2 rounded-xl">
+            {/* Segmented Meter Bar matching Dashboard Chart 4 */}
+            {(() => {
+              const total = processedJobs.length;
+              const inWarrantyPercent = total > 0 ? Math.round((inWarrantyCount / total) * 100) : 0;
+              const expiredPercent = total > 0 ? Math.round((expiredCount / total) * 100) : 0;
+
+              return (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-700">สัดส่วนความคุ้มครอง:</span>
+                    <span className="text-[11px] font-bold text-emerald-700 font-mono">
+                      {inWarrantyPercent}% อยู่ในระยะประกัน
+                    </span>
+                  </div>
+                  <div className="w-full h-3.5 rounded-full bg-slate-100 flex overflow-hidden p-0.5 border border-slate-200">
+                    <div 
+                      className="bg-emerald-500 rounded-l-full transition-all duration-500"
+                      style={{ width: `${inWarrantyPercent}%` }}
+                      title="อยู่ในประกัน"
+                    />
+                    <div 
+                      className="bg-orange-500 rounded-r-full transition-all duration-500"
+                      style={{ width: `${expiredPercent}%` }}
+                      title="หมดประกัน"
+                    />
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Metric Grid Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              <div className="bg-emerald-50/80 border border-emerald-200/80 px-3.5 py-2.5 rounded-xl">
                 <div className="flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span className="text-[11px] text-emerald-800 font-semibold">ในประกัน</span>
+                  <span className="text-xs text-emerald-800 font-semibold">อยู่ในประกัน</span>
                 </div>
                 <strong className="text-base font-bold text-emerald-700 font-mono mt-0.5 block">
                   {inWarrantyCount} งาน
                 </strong>
+                <span className="text-[10px] text-emerald-600 font-medium">ยังมีความคุ้มครอง</span>
               </div>
 
-              <div className="bg-rose-50/80 border border-rose-200/80 px-3.5 py-2 rounded-xl">
+              <div className="bg-orange-50/80 border border-orange-200/80 px-3.5 py-2.5 rounded-xl">
                 <div className="flex items-center gap-1.5">
-                  <ShieldX className="w-4 h-4 text-rose-600" />
-                  <span className="text-[11px] text-rose-800 font-semibold">หมดประกัน</span>
+                  <ShieldX className="w-4 h-4 text-orange-600" />
+                  <span className="text-xs text-orange-800 font-semibold">หมดประกัน</span>
                 </div>
-                <strong className="text-base font-bold text-rose-700 font-mono mt-0.5 block">
+                <strong className="text-base font-bold text-orange-700 font-mono mt-0.5 block">
                   {expiredCount} งาน
                 </strong>
+                <span className="text-[10px] text-orange-600 font-medium">ครบกำหนดระยะประกัน</span>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl col-span-2 sm:col-span-1 flex flex-col justify-center">
-                <span className="text-[10px] text-slate-500">เงื่อนไขคำนวณ</span>
-                <span className="text-[11px] text-slate-700 font-medium">
-                  ประกันคงเหลือ = วันประกัน - วันส่ง/วันรับ
-                </span>
+              <div className="bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl col-span-2 sm:col-span-1">
+                <span className="text-xs text-slate-600 font-semibold block">อัตราอยู่ในประกัน</span>
+                <strong className="text-base font-bold text-slate-800 font-mono mt-0.5 block">
+                  {processedJobs.length > 0 ? Math.round((inWarrantyCount / processedJobs.length) * 100) : 0}%
+                </strong>
+                <span className="text-[10px] text-slate-400">จากงานที่ปิดจ๊อบทั้งหมด</span>
               </div>
+            </div>
+          </div>
+
+          <div className="w-full lg:w-72 shrink-0 text-xs text-slate-600 bg-slate-50 border border-slate-200/80 p-4 rounded-xl flex flex-col justify-between">
+            <div>
+              <span className="font-bold text-slate-800 text-sm block mb-1.5">
+                เงื่อนไขการรับประกัน
+              </span>
+              <p className="text-slate-500 text-xs leading-relaxed">
+                การนับประกันจะเริ่มคำนวณตั้งแต่วันที่ลูกค้าได้รับเครื่องหรือวันที่จัดส่งพัสดุ หากเกินระยะเวลาที่กำหนด ระบบจะเปลี่ยนสถานะเป็น "หมดประกัน" ให้โดยอัตโนมัติ
+              </p>
+            </div>
+            <div className="pt-3 border-t border-slate-200/80 text-[11px] text-slate-500">
+              ตรวจสอบเงื่อนไขและวันสิ้นสุดได้ในแต่ละรายการด้านล่าง
             </div>
           </div>
         </div>

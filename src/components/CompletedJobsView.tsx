@@ -10,7 +10,6 @@ import {
 import { RepairJob } from '../types/repair';
 import { formatDateThai } from '../utils/formatters';
 import { exportJobsToExcel } from '../utils/excelExport';
-import { DonutPieChart, PieChartData } from './PieChart';
 
 interface CompletedJobsViewProps {
   jobs: RepairJob[];
@@ -47,36 +46,6 @@ export const CompletedJobsView: React.FC<CompletedJobsViewProps> = ({
     });
   }, [finishedJobs, sortField, sortOrder]);
 
-  // 3) ส่วนบนเเสดงกราฟวงกลมงานที่ซ่อมเสร็จ (Pie chart of completed jobs: จัดส่งพัสดุ vs มารับเอง)
-  const completedPieData: PieChartData[] = useMemo(() => {
-    const total = finishedJobs.length;
-    if (total === 0) return [];
-
-    const parcelCount = finishedJobs.filter(j => j.trackingNumber && j.trackingNumber.trim() !== '').length;
-    const pickupCount = total - parcelCount;
-
-    const list: PieChartData[] = [];
-    if (parcelCount > 0) {
-      list.push({
-        label: 'จัดส่งพัสดุ',
-        count: parcelCount,
-        color: '#0284c7',
-        percentage: Math.round((parcelCount / total) * 100),
-        formattedValue: `${parcelCount} งาน`,
-      });
-    }
-    if (pickupCount > 0) {
-      list.push({
-        label: 'มารับเองที่ร้าน',
-        count: pickupCount,
-        color: '#10b981',
-        percentage: Math.round((pickupCount / total) * 100),
-        formattedValue: `${pickupCount} งาน`,
-      });
-    }
-
-    return list;
-  }, [finishedJobs]);
 
   const handleToggleSort = (field: 'id' | 'deliveredAt') => {
     if (sortField === field) {
@@ -96,54 +65,111 @@ export const CompletedJobsView: React.FC<CompletedJobsViewProps> = ({
 
   return (
     <div className="space-y-4 pb-12 w-full">
-      {/* 3) ส่วนบนเเสดงกราฟวงกลมงานที่ซ่อมเสร็จ */}
+      {/* สรุปงานซ่อมเสร็จ & การส่งมอบ (Horizontal Comparative Bar Chart สอดคล้องกับหน้าแดชบอร์ด) */}
       <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex flex-col sm:flex-row items-center gap-6">
-            <DonutPieChart 
-              data={completedPieData} 
-              total={finishedJobs.length} 
-              size={150} 
-              centerTitle="ซ่อมเสร็จแล้ว"
-              centerValue={`${finishedJobs.length}`}
-              unitLabel="งาน"
-            />
+        <div className="flex flex-col lg:flex-row items-stretch justify-between gap-6">
+          <div className="flex-1 space-y-3">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  สถิติงานซ่อมเสร็จ & ช่องทางการส่งมอบ
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  เปรียบเทียบจัดส่งพัสดุ vs รับเองที่ร้าน (เสร็จสิ้น {finishedJobs.length} งาน)
+                </p>
+              </div>
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 font-mono">
+                ปิดจ๊อบ {finishedJobs.length} งาน
+              </span>
+            </div>
 
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">
-                สถิติงานซ่อมเสร็จและการจัดส่ง
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                รวมทั้งหมด {finishedJobs.length} งาน
-              </p>
+            {/* Horizontal Comparative Bars */}
+            {(() => {
+              const total = finishedJobs.length;
+              const parcelCount = finishedJobs.filter(j => j.trackingNumber && j.trackingNumber.trim() !== '').length;
+              const pickupCount = total - parcelCount;
+              const parcelPercent = total > 0 ? Math.round((parcelCount / total) * 100) : 0;
+              const pickupPercent = total > 0 ? Math.round((pickupCount / total) * 100) : 0;
 
-              <div className="flex flex-wrap items-center gap-3 mt-3">
-                <div className="flex items-center gap-2 bg-sky-50 border border-sky-200 px-3 py-1.5 rounded-xl text-xs">
-                  <Truck className="w-4 h-4 text-sky-600" />
-                  <span className="text-sky-900 font-semibold">จัดส่งพัสดุ:</span>
-                  <strong className="text-sky-700 font-mono">
-                    {completedPieData.find(c => c.label === 'จัดส่งพัสดุ')?.count || 0} งาน
-                  </strong>
+              return (
+                <div className="space-y-3 pt-1">
+                  {/* Parcel Bar */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                        <Truck className="w-4 h-4 text-sky-600" />
+                        <span>จัดส่งพัสดุ (มีเลข Tracking)</span>
+                      </div>
+                      <span className="font-bold text-sky-700 font-mono text-xs">
+                        {parcelCount} งาน ({parcelPercent}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border border-slate-200">
+                      <div 
+                        className="bg-sky-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${parcelPercent}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Pickup Bar */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                        <Package className="w-4 h-4 text-emerald-600" />
+                        <span>ลูกค้ามารับเองที่ร้าน</span>
+                      </div>
+                      <span className="font-bold text-emerald-700 font-mono text-xs">
+                        {pickupCount} งาน ({pickupPercent}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border border-slate-200">
+                      <div 
+                        className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${pickupPercent}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
+              );
+            })()}
 
-                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs">
-                  <Package className="w-4 h-4 text-emerald-600" />
-                  <span className="text-emerald-900 font-semibold">มารับเอง:</span>
-                  <strong className="text-emerald-700 font-mono">
-                    {completedPieData.find(c => c.label === 'มารับเองที่ร้าน')?.count || 0} งาน
-                  </strong>
-                </div>
+            {/* Service Channels Pill breakdown */}
+            <div className="pt-2 grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="bg-sky-50/80 p-2 rounded-xl border border-sky-100">
+                <span className="text-slate-500 block text-[11px]">📦 ส่งมา</span>
+                <strong className="text-sky-800 font-mono text-sm">
+                  {jobs.filter(j => j.serviceChannel === 'ส่งมา').length}
+                </strong>
+              </div>
+              <div className="bg-emerald-50/80 p-2 rounded-xl border border-emerald-100">
+                <span className="text-slate-500 block text-[11px]">🚶 มาเอง</span>
+                <strong className="text-emerald-800 font-mono text-sm">
+                  {jobs.filter(j => !j.serviceChannel || j.serviceChannel === 'มาเอง').length}
+                </strong>
+              </div>
+              <div className="bg-amber-50/80 p-2 rounded-xl border border-amber-100">
+                <span className="text-slate-500 block text-[11px]">🚗 นอกสถานที่</span>
+                <strong className="text-amber-800 font-mono text-sm">
+                  {jobs.filter(j => j.serviceChannel === 'ซ่อมนอกสถานที่').length}
+                </strong>
               </div>
             </div>
           </div>
 
-          <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200/80 p-3 rounded-xl max-w-xs self-stretch md:self-auto flex flex-col justify-center">
-            <span className="font-bold text-slate-700 block mb-1">
-              คำแนะนำ
-            </span>
-            <span>
-              งานที่ระบุเลขพัสดุจะเริ่มนับวันประกันตั้งแต่วันส่งพัสดุ ส่วนกรณีมารับเองจะเริ่มนับจากวันที่รับเครื่อง
-            </span>
+          <div className="w-full lg:w-72 shrink-0 text-xs text-slate-600 bg-slate-50 border border-slate-200/80 p-4 rounded-xl flex flex-col justify-between">
+            <div>
+              <span className="font-bold text-slate-800 text-sm block mb-1.5 flex items-center gap-1.5">
+                <span>📋 ข้อมูลการรับประกันงานซ่อม</span>
+              </span>
+              <p className="text-slate-500 text-xs leading-relaxed">
+                งานที่ระบุเลขพัสดุจะเริ่มนับวันประกันตั้งแต่วันส่งพัสดุ ส่วนกรณีมารับเองจะเริ่มนับจากวันที่ส่งมอบเครื่องที่ร้าน สามารถตรวจสอบระยะเวลาคงเหลือได้ที่แท็บ "ประกัน"
+              </p>
+            </div>
+            <div className="pt-3 border-t border-slate-200/80 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+              <span>สถานะ: ปิดงานสมบูรณ์</span>
+              <span className="text-emerald-700 font-bold">เริ่มคุ้มครองทันที</span>
+            </div>
           </div>
         </div>
       </div>
@@ -239,18 +265,38 @@ export const CompletedJobsView: React.FC<CompletedJobsViewProps> = ({
                         </div>
                       </td>
 
-                      {/* 2. ประเภทงาน (เหมือนหน้ารายได้) */}
-                      <td className="py-3.5 px-3 whitespace-nowrap align-top text-center">
-                        {job.jobType === 'งานในประกัน' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                            <span>ในประกัน</span>
+                      {/* 2. ประเภทงาน และ ช่องทางบริการ */}
+                      <td className="py-3.5 px-3 whitespace-nowrap align-top text-center space-y-1">
+                        <div>
+                          {job.jobType === 'งานในประกัน' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                              <span>ในประกัน</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                              <span>งานใหม่</span>
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.2 rounded text-[10px] font-bold ${
+                            job.serviceChannel === 'ส่งมา' 
+                              ? 'bg-sky-50 text-sky-800 border border-sky-200' 
+                              : job.serviceChannel === 'ซ่อมนอกสถานที่' 
+                              ? 'bg-amber-50 text-amber-800 border border-amber-200' 
+                              : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          }`}>
+                            <span>{job.serviceChannel === 'ส่งมา' ? '📦 1. ส่งมา' : job.serviceChannel === 'ซ่อมนอกสถานที่' ? '🚗 3. นอกสถานที่' : '🚶‍♂️ 2. มาเอง'}</span>
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
-                            <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                            <span>งานใหม่</span>
-                          </span>
+                        </div>
+                        {job.financials?.paymentStatus === 'paid' && (
+                          <div>
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.2 rounded border border-emerald-200">
+                              ชำระแล้ว {job.financials.paymentMethod === 'cash' ? '(สด)' : '(โอน)'}
+                            </span>
+                          </div>
                         )}
                       </td>
 

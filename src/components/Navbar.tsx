@@ -17,7 +17,9 @@ import {
   Code2,
   Check,
   RefreshCw,
-  Smartphone
+  Smartphone,
+  Clock,
+  Key
 } from 'lucide-react';
 import { RepairJob, ShopSettings } from '../types/repair';
 import { LicenseConfig, LicenseStatus } from '../types/license';
@@ -38,6 +40,7 @@ interface NavbarProps {
   onOpenSourceCode?: () => void;
   onOpenMobileGuide?: () => void;
   onOpenLicenseManager?: () => void;
+  onOpenLogin?: () => void;
   licenseConfig?: LicenseConfig;
   licenseStatus?: LicenseStatus;
   jobs: RepairJob[];
@@ -53,6 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSourceCode,
   onOpenMobileGuide,
   onOpenLicenseManager,
+  onOpenLogin,
   licenseConfig,
   licenseStatus,
   jobs,
@@ -276,13 +280,28 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Subscription / License Status Badge (ไม่แสดงสำหรับผู้ใช้งานลิงค์สาขา) */}
-            {licenseConfig && licenseStatus && onOpenLicenseManager && !isBranch && (
+            {/* Subscription / License Status Badge (แสดงทั้งแอดมิน และ สาขาพร้อมนับถอยหลัง) */}
+            {licenseConfig && licenseStatus && onOpenLicenseManager && (
               <LicenseStatusBadge
                 licenseConfig={licenseConfig}
                 licenseStatus={licenseStatus}
                 onClick={onOpenLicenseManager}
               />
+            )}
+
+            {/* Login & Cross-Device Sync Button (เข้าสู่ระบบ / สลับบัญชี / ย้ายเครื่อง) */}
+            {onOpenLogin && (
+              <button
+                onClick={onOpenLogin}
+                title="เข้าสู่ระบบ / สลับบัญชีแอดมิน-สาขา / ย้ายข้อมูลข้ามโทรศัพท์"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-slate-500 text-xs font-semibold cursor-pointer transition active:scale-95"
+              >
+                <Key className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">{isBranch ? 'สาขา' : 'แอดมิน'}</span>
+                <span className="text-[10px] bg-slate-700 px-1.5 py-0.2 rounded text-slate-300 font-mono hidden md:inline">
+                  {isBranch ? 'Branch' : 'Admin'}
+                </span>
+              </button>
             )}
 
             <button
@@ -343,18 +362,26 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             ตั้งค่า
           </button>
-          {/* เมนูต่ออายุการใช้งาน (ไม่แสดงสำหรับผู้ใช้งานลิงค์สาขา) */}
-          {onOpenLicenseManager && licenseStatus && !isBranch && (
+          {/* เมนูอายุการใช้งานและนับถอยหลัง */}
+          {onOpenLicenseManager && licenseStatus && (
             <button
               onClick={onOpenLicenseManager}
               className={`px-2.5 py-1 rounded font-medium whitespace-nowrap flex items-center gap-1 border ${
                 licenseStatus.isExpired 
                   ? 'bg-red-900/40 text-red-300 border-red-500/40' 
+                  : isBranch
+                  ? 'bg-amber-900/40 text-amber-300 border-amber-500/40'
                   : 'bg-emerald-900/30 text-emerald-300 border-emerald-500/30'
               }`}
             >
-              <ShieldCheck className="w-3 h-3 text-emerald-400" />
-              <span>{licenseStatus.isExpired ? 'หมดอายุ' : `อายุใช้งาน (${licenseStatus.daysRemaining}วัน)`}</span>
+              <Clock className="w-3 h-3 text-amber-400" />
+              <span>
+                {licenseStatus.isExpired 
+                  ? 'หมดอายุ' 
+                  : isBranch 
+                  ? `นับถอยหลัง: ${licenseStatus.daysRemaining}วัน` 
+                  : `อายุใช้งาน (${licenseStatus.daysRemaining}วัน)`}
+              </span>
             </button>
           )}
           {/* เมนูติดตั้งลงมือถือ (ไม่แสดงสำหรับผู้ใช้งานลิงค์สาขา) */}

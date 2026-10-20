@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   ShieldCheck, 
@@ -23,7 +23,9 @@ import {
   Layers,
   ShieldAlert,
   Send,
-  EyeOff
+  EyeOff,
+  Trash2,
+  Plus
 } from 'lucide-react';
 import { LicenseConfig, LicenseStatus } from '../types/license';
 import { 
@@ -35,7 +37,11 @@ import {
   DEFAULT_CONTACT_NAME,
   DEFAULT_CONTACT_PHONE,
   DEFAULT_CONTACT_PHONE_RAW,
-  DEFAULT_CONTACT_LINE
+  DEFAULT_CONTACT_LINE,
+  BranchLinkItem,
+  getStoredBranches,
+  saveBranchLinkItem,
+  deleteStoredBranch
 } from '../utils/license';
 
 interface LicenseManagerModalProps {
@@ -61,10 +67,97 @@ export const LicenseManagerModal: React.FC<LicenseManagerModalProps> = ({
   const [renewalCode, setRenewalCode] = useState('');
   const [renewalMsg, setRenewalMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Multi-device generator
+  // Multi-device generator with duration options & countdown
   const [customBranchName, setCustomBranchName] = useState('branch-01');
+  const [branchDurationChoice, setBranchDurationChoice] = useState<number | 'lifetime' | 'custom'>(7);
+  const [customDaysInput, setCustomDaysInput] = useState('7');
   const [copiedBranchUrl, setCopiedBranchUrl] = useState(false);
+  const [copiedItemUrl, setCopiedItemUrl] = useState<string | null>(null);
+  const [storedBranches, setStoredBranches] = useState<BranchLinkItem[]>([]);
   const activeTenant = getActiveTenantId();
+
+  // Load registered branches on mount
+  useEffect(() => {
+    setStoredBranches(getStoredBranches());
+  }, []);
+
+  // Compute effective days
+  const effectiveBranchDays = branchDurationChoice === 'custom'
+    ? (parseInt(customDaysInput, 10) > 0 ? parseInt(customDaysInput, 10) : 7)
+    : branchDurationChoice;
+
+  const currentBranchUrl = buildBranchUrl(customBranchName || 'branch-01', effectiveBranchDays);
+
+  const handleCreateAndSaveBranch = () => {
+    const cleanCode = (customBranchName || 'branch-01').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    if (!cleanCode) return;
+
+    const now = new Date();
+    const expiresAt = effectiveBranchDays === 'lifetime'
+      ? null
+      : new Date(now.getTime() + (effectiveBranchDays as number) * 24 * 60 * 60 * 1000).toISOString();
+
+    const newItem: BranchLinkItem = {
+      id: `br_${Date.now()}`,
+      tenantCode: cleanCode,
+      name: `สาขา ${cleanCode}`,
+      daysGranted: effectiveBranchDays,
+      createdAt: now.toISOString(),
+      expiresAt,
+      url: currentBranchUrl,
+    };
+
+    const updated = saveBranchLinkItem(newItem);
+    setStoredBranches(updated);
+    handleCopy(currentBranchUrl, setCopiedBranchUrl);
+  };
+
+  const handleDeleteBranch = (code: string) => {
+    if (confirm(`ต้องการลบรายการลิงก์สาขา ${code} หรือไม่?`)) {
+      const updated = deleteStoredBranch(code);
+      setStoredBranches(updated);
+    }
+  };
+
+  const getBranchCountdownInfo = (branch: BranchLinkItem) => {
+    if (branch.daysGranted === 'lifetime' || !branch.expiresAt) {
+      return {
+        text: '👑 ตลอดชีพ (ไม่มีวันหมดอายุ)',
+        isExpired: false,
+        badgeClass: 'bg-yellow-100 text-yellow-800 border border-yellow-300 font-bold',
+      };
+    }
+    const now = Date.now();
+    const exp = new Date(branch.expiresAt).getTime();
+    const diff = exp - now;
+    if (diff <= 0) {
+      return {
+        text: '❌ หมดอายุแล้ว',
+        isExpired: true,
+        badgeClass: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold',
+      };
+    }
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const mins = Math.floor((diff / (1000 * 60)) % 60);
+
+    let text = '';
+    if (days > 0) {
+      text = `เหลืออีก ${days} วัน ${hours} ชม.`;
+    } else if (hours > 0) {
+      text = `เหลืออีก ${hours} ชม. ${mins} นาที`;
+    } else {
+      text = `เหลืออีก ${mins} นาที`;
+    }
+
+    return {
+      text: `⏳ ${text}`,
+      isExpired: false,
+      badgeClass: days <= 3 
+        ? 'bg-amber-100 text-amber-800 border border-amber-300 font-bold animate-pulse'
+        : 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold',
+    };
+  };
 
   // Admin PIN & Controls
   const [adminPinInput, setAdminPinInput] = useState('');
@@ -92,7 +185,6 @@ export const LicenseManagerModal: React.FC<LicenseManagerModalProps> = ({
 
   if (!isOpen) return null;
 
-  const currentBranchUrl = buildBranchUrl(customBranchName || 'branch-01');
   const contactName = licenseConfig.contactName || DEFAULT_CONTACT_NAME;
   const contactPhone = licenseConfig.contactPhone || DEFAULT_CONTACT_PHONE;
   const rawPhone = contactPhone.replace(/[^0-9]/g, '') || DEFAULT_CONTACT_PHONE_RAW;
@@ -271,11 +363,17 @@ export const LicenseManagerModal: React.FC<LicenseManagerModalProps> = ({
                           ? 'เปิดใช้งานตลอดชีพ (ไม่มีวันหมดอายุ)'
                           : licenseStatus.isExpired
                           ? 'ระยะเวลาการใช้งานสิ้นสุดแล้ว'
-                          : `เหลือระยะเวลาใช้งานอีก ${licenseStatus.daysRemaining} วัน`}
+                          : `${licenseStatus.countdownText || `เหลือระยะเวลาใช้งานอีก ${licenseStatus.daysRemaining} วัน`}`}
                       </h4>
                       <p className="text-xs text-slate-600 mt-1">
                         สิ้นสุดวันที่: <strong className="text-slate-800">{licenseStatus.expiresAtFormatted}</strong>
                       </p>
+                      {licenseConfig.tenantId !== 'default' && (
+                        <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                          <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                          <span>ระบบนับถอยหลังอัตโนมัติสำหรับสาขา: {licenseConfig.tenantId}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -534,20 +632,20 @@ export const LicenseManagerModal: React.FC<LicenseManagerModalProps> = ({
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
                     <Share2 className="w-4 h-4 text-blue-600" />
-                    <span>สร้างลิงก์ส่งให้สาขาใหม่ (ทดลองใช้งานฟรี 7 วัน)</span>
+                    <span>สร้างลิงก์สาขาใหม่ พร้อมกำหนดอายุการใช้งาน (ตามสั่งข้อ 5)</span>
                   </h4>
                   <span className="text-[11px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-md">
-                    7 วัน Free Trial
+                    กำหนดอายุได้อิสระ
                   </span>
                 </div>
                 <p className="text-xs text-slate-500">
-                  พิมพ์รหัสสาขาหรือชื่อผู้ใช้ด้านล่าง เพื่อสร้างลิงก์เฉพาะเครื่อง จากนั้นกดคัดลอกส่งต่อทาง LINE หรือข้อความได้ทันที
+                  ระบุชื่อสาขาและเลือกระยะเวลาใช้งาน (รายวัน, 7 วัน, 30 วัน, 90 วัน, 180 วัน, 360 วัน หรือตลอดชีพ) เพื่อสร้างลิงก์เฉพาะพร้อมนับถอยหลัง
                 </p>
 
-                <div className="space-y-3">
+                <div className="space-y-3.5">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      ระบุรหัสสาขา หรือชื่อเครื่อง (ภาษาอังกฤษ/ตัวเลข):
+                      1. ระบุรหัสสาขา หรือชื่อเครื่อง (ภาษาอังกฤษ/ตัวเลข):
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -560,12 +658,79 @@ export const LicenseManagerModal: React.FC<LicenseManagerModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Generated Link Display */}
-                  <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-2.5">
-                    <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between">
-                      <span>ลิงก์สำหรับส่งให้เครื่องปลายทาง:</span>
-                      <span className="text-emerald-600 font-bold">✨ รับฟรี 7 วันทันทีเมื่อเปิดใช้งาน</span>
+                  {/* 5) Duration Selector */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                      <span>2. กำหนดระยะเวลาใช้งานของลิงก์สาขา:</span>
+                      <span className="text-blue-600 font-bold">
+                        {effectiveBranchDays === 'lifetime' 
+                          ? '👑 ใช้งานตลอดชีพ' 
+                          : `อายุใช้งาน: ${effectiveBranchDays} วัน`}
+                      </span>
+                    </label>
+
+                    {/* Quick Presets Buttons: 1วัน, 7วัน, 30วัน, 90วัน, 180วัน, 360วัน, ตลอดชีพ */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { label: '1 วัน (ทดสอบ)', value: 1 },
+                        { label: '7 วัน', value: 7 },
+                        { label: '30 วัน (1 เดือน)', value: 30 },
+                        { label: '90 วัน (3 เดือน)', value: 90 },
+                        { label: '180 วัน (6 เดือน)', value: 180 },
+                        { label: '360 วัน (1 ปี)', value: 360 },
+                        { label: '👑 ตลอดชีพ', value: 'lifetime' as const },
+                        { label: '✏️ กำหนดเอง', value: 'custom' as const },
+                      ].map((preset) => {
+                        const isSelected = branchDurationChoice === preset.value;
+                        return (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={() => {
+                              setBranchDurationChoice(preset.value);
+                            }}
+                            className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                              isSelected
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-300'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {isSelected && <Check className="w-3.5 h-3.5" />}
+                            <span>{preset.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
+
+                    {/* Custom Days Input if "กำหนดเอง" selected */}
+                    {branchDurationChoice === 'custom' && (
+                      <div className="mt-2.5 p-3 bg-blue-50/80 rounded-xl border border-blue-200 flex items-center gap-3 animate-in fade-in">
+                        <label className="text-xs font-bold text-blue-900 whitespace-nowrap">
+                          ระบุจำนวนวันใช้งาน:
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="3650"
+                          value={customDaysInput}
+                          onChange={(e) => setCustomDaysInput(e.target.value)}
+                          placeholder="เช่น 14, 45, 60"
+                          className="w-32 px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-xs font-bold text-center font-mono focus:ring-2 focus:ring-blue-500"
+                        />
+                        <span className="text-xs text-blue-700 font-semibold">วัน</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Generated Link Display with Save button */}
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-3">
+                    <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+                      <span>ลิงก์สำหรับส่งให้เครื่องสาขา:</span>
+                      <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        {effectiveBranchDays === 'lifetime' ? '👑 สิทธิ์ตลอดชีพ' : `✨ อายุ ${effectiveBranchDays} วัน`}
+                      </span>
+                    </div>
+
                     <div className="flex items-center space-x-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                       <span className="text-xs font-mono text-slate-700 truncate flex-1 select-all font-medium">
                         {currentBranchUrl}
@@ -573,28 +738,89 @@ export const LicenseManagerModal: React.FC<LicenseManagerModalProps> = ({
                       <button
                         type="button"
                         onClick={() => handleCopy(currentBranchUrl, setCopiedBranchUrl)}
-                        className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition shrink-0 flex items-center space-x-1 cursor-pointer active:scale-95"
+                        className="px-3.5 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition shrink-0 flex items-center space-x-1 cursor-pointer"
                       >
                         {copiedBranchUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copiedBranchUrl ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}</span>
+                        <span>{copiedBranchUrl ? 'คัดลอกแล้ว' : 'คัดลอก'}</span>
                       </button>
                     </div>
 
-                    <div className="pt-2 flex items-center justify-between text-xs text-slate-500">
-                      <span>รหัสใช้งานที่เปิดอยู่ในปัจจุบัน: <strong className="text-blue-600">{activeTenant}</strong></span>
-                      <a
-                        href={currentBranchUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-blue-600 hover:underline flex items-center space-x-1 font-medium"
-                      >
-                        <span>ทดลองเปิดดูลิงก์นี้ในแท็บใหม่</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
+                    {/* Action button to save to branch list */}
+                    <button
+                      type="button"
+                      onClick={handleCreateAndSaveBranch}
+                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>บันทึกและคัดลอกลิงก์สาขานี้ ({effectiveBranchDays === 'lifetime' ? 'ตลอดชีพ' : `${effectiveBranchDays} วัน`})</span>
+                    </button>
                   </div>
                 </div>
               </div>
+
+              {/* 5) Table/List of Created Branch Links with Live Countdown */}
+              {storedBranches.length > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-blue-600" />
+                      <span>รายการลิงก์สาขาที่สร้างไว้ พร้อมนับถอยหลังอายุใช้งาน ({storedBranches.length} สาขา)</span>
+                    </h4>
+                    <span className="text-[11px] text-slate-400">อัพเดตเรียลไทม์</span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {storedBranches.map((br) => {
+                      const cd = getBranchCountdownInfo(br);
+                      const isItemCopied = copiedItemUrl === br.url;
+                      return (
+                        <div
+                          key={br.tenantCode}
+                          className="p-3 bg-slate-50/80 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 hover:bg-slate-50 transition"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs text-slate-900 font-mono bg-white px-2 py-0.5 rounded border border-slate-200">
+                                {br.tenantCode}
+                              </span>
+                              <span className={`text-[11px] px-2 py-0.5 rounded ${cd.badgeClass}`}>
+                                {cd.text}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 truncate max-w-md font-mono">
+                              {br.url}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleCopy(br.url, () => {
+                                  setCopiedItemUrl(br.url);
+                                  setTimeout(() => setCopiedItemUrl(null), 2000);
+                                });
+                              }}
+                              className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                            >
+                              {isItemCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                              <span>{isItemCopied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteBranch(br.tenantCode)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                              title="ลบสาขานี้"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Security Protection Notice */}
               <div className="p-4 rounded-xl bg-slate-100 border border-slate-300 text-xs text-slate-700 leading-relaxed space-y-1">

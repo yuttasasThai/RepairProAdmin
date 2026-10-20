@@ -46,11 +46,12 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
   };
 
   const getStepStatus = (stepIndex: number, currentStatus: string) => {
-    // Stepper order:
-    // 0: Received (pending)
-    // 1: In Progress / Parts (in_progress, waiting_parts)
-    // 2: Completed (completed)
-    // 3: Delivered (delivered)
+    // 5-Stage Stepper order:
+    // 0: ขั้นตอนที่ 1 รับงานซ่อมเข้าระบบ (pending)
+    // 1: ขั้นตอนที่ 2 ตรวจซ่อม / รออะไหล่ / เปลี่ยนอะไหล่ (in_progress, waiting_parts)
+    // 2: ขั้นตอนที่ 3 ซ่อมเสร็จเรียบร้อย (completed)
+    // 3: ขั้นตอนที่ 4 รอส่งมอบ / รอรับเครื่อง (ready_to_ship)
+    // 4: ขั้นตอนที่ 5 ส่งมอบสำเร็จ (delivered, picked_up)
     if (currentStatus === 'cancelled') {
       return 'cancelled';
     }
@@ -60,7 +61,9 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
       in_progress: 1,
       waiting_parts: 1,
       completed: 2,
-      delivered: 3,
+      ready_to_ship: 3,
+      picked_up: 4,
+      delivered: 4,
     };
 
     const currentWeight = statusWeights[currentStatus] ?? 0;
@@ -184,7 +187,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
                     ขั้นตอนความคืบหน้าการซ่อม
                   </h3>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 relative">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 relative">
                     {/* Step 1: Received */}
                     <div className="flex flex-col items-center text-center space-y-2">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-emerald-600 text-white shadow-sm">
@@ -215,11 +218,11 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
                               <Wrench className="w-5 h-5" />
                             )}
                           </div>
-                          <span className={`font-semibold text-xs ${st === 'current' ? 'text-blue-700' : 'text-slate-800'}`}>
-                            {isWaitingParts ? '2. รออะไหล่จัดส่ง' : '2. กำลังซ่อมแซม'}
+                          <span className={`font-semibold text-xs ${st === 'current' ? 'text-blue-700 font-bold' : 'text-slate-800'}`}>
+                            {isWaitingParts ? '2. รออะไหล่' : '2. ตรวจซ่อม'}
                           </span>
                           <span className="text-[11px] text-slate-400">
-                            {st === 'current' ? 'ช่างกำลังดำเนินการ' : st === 'done' ? 'ตรวจเช็คแล้ว' : 'รอคิวตรวจ'}
+                            {st === 'current' ? (isWaitingParts ? 'รอสั่งอะไหล่' : 'กำลังซ่อมแซม') : st === 'done' ? 'ตรวจเช็คแล้ว' : 'รอดำเนินการ'}
                           </span>
                         </div>
                       );
@@ -240,18 +243,43 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
                             <CheckCircle2 className="w-5 h-5" />
                           </div>
                           <span className={`font-semibold text-xs ${st === 'current' ? 'text-emerald-700 font-bold' : 'text-slate-800'}`}>
-                            3. ซ่อมเสร็จเรียบร้อย
+                            3. ซ่อมเสร็จแล้ว
                           </span>
                           <span className="text-[11px] text-slate-400">
-                            {st === 'current' ? 'พร้อมให้ลูกค้ามารับ' : st === 'done' ? 'เสร็จสมบูรณ์' : 'รอดำเนินการ'}
+                            {st === 'current' ? 'ทดสอบผ่านแล้ว' : st === 'done' ? 'เสร็จสมบูรณ์' : 'รอดำเนินการ'}
                           </span>
                         </div>
                       );
                     })()}
 
-                    {/* Step 4: Delivered */}
+                    {/* Step 4: Ready to ship / Ready for pickup */}
                     {(() => {
                       const st = getStepStatus(3, searchedJob.status);
+                      const isPickup = searchedJob.serviceChannel === 'มาเอง' || searchedJob.status === 'picked_up';
+                      return (
+                        <div className="flex flex-col items-center text-center space-y-2">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm ${
+                            st === 'done'
+                              ? 'bg-emerald-600 text-white'
+                              : st === 'current'
+                              ? 'bg-cyan-600 text-white ring-4 ring-cyan-100 animate-pulse'
+                              : 'bg-slate-100 text-slate-400'
+                          }`}>
+                            <Truck className="w-5 h-5" />
+                          </div>
+                          <span className={`font-semibold text-xs ${st === 'current' ? 'text-cyan-700 font-bold' : 'text-slate-800'}`}>
+                            4. {isPickup ? 'รอรับเครื่อง' : 'รอจัดส่งพัสดุ'}
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            {st === 'current' ? (isPickup ? 'พร้อมรับที่ร้าน' : 'เตรียมแพ็คส่ง') : st === 'done' ? 'เตรียมพร้อมแล้ว' : 'รอดำเนินการ'}
+                          </span>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Step 5: Delivered */}
+                    {(() => {
+                      const st = getStepStatus(4, searchedJob.status);
                       return (
                         <div className="flex flex-col items-center text-center space-y-2">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm ${
@@ -259,13 +287,13 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
                               ? 'bg-teal-600 text-white' 
                               : 'bg-slate-100 text-slate-400'
                           }`}>
-                            <Truck className="w-5 h-5" />
+                            <CheckCircle2 className="w-5 h-5" />
                           </div>
-                          <span className={`font-semibold text-xs ${st === 'current' ? 'text-teal-700' : 'text-slate-800'}`}>
-                            4. ส่งมอบ & รับประกัน
+                          <span className={`font-semibold text-xs ${st === 'current' || st === 'done' ? 'text-teal-700 font-bold' : 'text-slate-800'}`}>
+                            5. ส่งมอบสำเร็จ
                           </span>
                           <span className="text-[11px] text-slate-400">
-                            {st === 'current' || st === 'done' ? 'รับเครื่องแล้ว' : 'ส่งมอบเมื่อมารับ'}
+                            {st === 'current' || st === 'done' ? 'รับเครื่อง/เริ่มประกัน' : 'ส่งมอบเมื่อเสร็จ'}
                           </span>
                         </div>
                       );
@@ -317,6 +345,62 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Status Timeline History */}
+              {searchedJob.history && searchedJob.history.length > 0 && (
+                <div className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50/60">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-blue-600" />
+                      <span>ประวัติการดำเนินงานซ่อม (Timeline ประจำเครื่อง)</span>
+                    </span>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                      สถานะ: {STATUS_MAP[searchedJob.status]?.label}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 pt-1">
+                    {searchedJob.history.map((h, i) => (
+                      <div key={i} className="flex items-start gap-2.5 text-xs bg-white p-2.5 rounded-lg border border-slate-200/80">
+                        <div className="w-2.5 h-2.5 rounded-full bg-blue-600 mt-1 shrink-0" />
+                        <div className="flex-1 space-y-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-slate-900 truncate">
+                              {STATUS_MAP[h.status]?.label || h.status}
+                            </span>
+                            <span className="text-[11px] text-slate-400 shrink-0 font-mono">
+                              {formatDateThai(h.timestamp, true)}
+                            </span>
+                          </div>
+                          {h.note && (
+                            <p className="text-slate-600 text-xs leading-relaxed break-words">
+                              {h.note}
+                            </p>
+                          )}
+                          {h.paymentStatus && (
+                            <div className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              <span>สถานะชำระ: {h.paymentStatus === 'paid' ? 'ชำระแล้ว' : 'รอชำระ'}</span>
+                              {h.paymentMethod && <span>({h.paymentMethod === 'cash' ? 'เงินสด' : 'โอน'})</span>}
+                            </div>
+                          )}
+                          {h.photos && h.photos.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {h.photos.map((p, pI) => (
+                                <img
+                                  key={pI}
+                                  src={p}
+                                  alt="รูปหลักฐาน"
+                                  className="w-12 h-12 object-cover rounded-md border border-slate-200"
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Action */}
               <div className="flex items-center justify-between pt-2">
